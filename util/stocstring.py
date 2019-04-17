@@ -58,10 +58,8 @@ class StocString:
             prev = char
 
     def __repr__(self):
-        output = ""
-        for token in self.tokens:
-            output += repr(token)
-        return output
+        '''overriding repr()'''
+        return "StocString(%r)" % (self.original,)
 
     def __str__(self):
         output = ""
