@@ -1,58 +1,61 @@
 '''Module for dealing with stochastic strings'''
 import re
 from random import uniform, triangular, betavariate, expovariate, gammavariate, gauss, lognormvariate, normalvariate, vonmisesvariate, paretovariate, weibullvariate, randrange, choice
-from util.distr import RandDist, ChoiceDist, weightedchoice
+from distr import RandDist, ChoiceDist, weightedchoice
 
 
 class StringMacro:
     '''Class that holds macros for StocStrings'''
     def __init__(self, input_string):
         # strip any lingering macro formatting
-        self.original = input_string.lstrip("!{").rstrip("}")
+        if input_string.startswith("!{") and input_string.endswith("}"):
+            input_string = input_string[2:-1]
+        self._original = input_string
 
     def execute(self):
         '''evaluate the macro and return the result'''
         # TODO: pass locals / globals dictionary to make this more safe
-        return eval(self.original)
+        return eval(self._original)
 
     def __str__(self):
         return str(self.execute())
 
     def __repr__(self):
-        return "StringMacro(%s)" % self.original
+        return "StringMacro(%s)" % self._original
 
 # TODO: add names to the results of macros to allow them to be named later
 class StocString:
     '''Class representing and processsing stochastic strings'''
     # regex that captures the macros
     # this regex cannot work, we need a LR parser to check open / closed parentheses
-    token_regex = re.compile(r"((!{)(([^!{]*[?{]?)*)(}))")
 
     def __init__(self, input_string):
         # keeping a copy of the master string
         self.original = input_string
-        #TODO: add some regexs to check unmatched braces
-        self.tokens = StocString.token_regex.split(input_string)
 
-        # removing all the unnecessary separators left by the split
-        # (the best way to illustrate the need for this loop
-        #  is to uncomment the line below)
-        # print(self.tokens)
-        # also converting the macros as appropriate
-        
-        i = 0
-        while (i < len(self.tokens)):
-            token = self.tokens[i]
-            if token == "!{":
-                del self.tokens[i:i+4]
-            elif token == "":
-                del self.tokens[i]
-            else:
-                # if the token starts with !{ then it is macro
-                # thus, we must convert it as appopriate
-                if token.startswith("!{"):
-                    self.tokens[i] = StringMacro(token)
-                i += 1
+        # parse the string and get list of tokens
+        self.tokens = [""]
+        depth = 0
+        macro_started = False
+        prev = None
+        for char in input_string:
+            self.tokens[-1] += char
+            if macro_started:
+                if char == "{":
+                    depth += 1
+                elif char == "}":
+                    depth -= 1
+                    if depth == 0:
+                        macro_started = False
+                        self.tokens[-1] = StringMacro(self.tokens[-1])
+                        self.tokens.append("")
+            elif char == "{" and prev == "!":
+                macro_started = True
+                # remove the !{ that was added to the previous string
+                self.tokens[-1] = self.tokens[-1][:-2]
+                self.tokens.append("!{")
+                depth += 1
+            prev = char
 
     def __repr__(self):
         output = ""
@@ -72,6 +75,9 @@ class StocString:
         returns a normal string
         '''
         return str(StocString(input_string))
+
+# TODO: make a CachedStocString that only updates 
+# if a certain amount of time has expired or if it is refreshed
 
 '''
 Examples:
